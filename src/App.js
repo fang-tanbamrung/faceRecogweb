@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import Particles from 'react-particles-js';
-import Clarifai from 'clarifai';
 import Navbar from './components/Navbar/Navbar';
 import Logo from './components/Logo/Logo';
 import ImageLinkForm from './components/imageLinkForm/imageLinkForm';
@@ -11,9 +10,22 @@ import Register from './components/Register/Register';
 import 'tachyons';
 import './App.css';
 
-const app = new Clarifai.App({
-  apiKey:'cb125f3832884dbaaae49e4458cc803a'
-});
+
+
+const initialState = {
+  input:'',
+  imageUrl:'',
+  box:{},
+  route:'signin',
+  isSignin: false,
+  user:{
+    id:'',
+    name:'',
+    email:'',
+    entries: 0 ,
+    joined: ''
+  }
+}
 
 const particlesOption = {
   particles: {
@@ -37,18 +49,24 @@ const particlesOption = {
 class App extends Component {
   constructor(props){
     super(props)
-    this.state = {
-      input:'',
-      imageUrl:'',
-      box:{},
-      route:'signin',
-      isSignin: false
-    };
+    this.state = initialState;
+  
     this.onButtonSubmit = this.onButtonSubmit.bind(this);
     this.onInputChange = this.onInputChange.bind(this);
     this.calculateFaceLocation = this.calculateFaceLocation.bind(this);
     this.displayFaceBox = this.displayFaceBox.bind(this);
     this.onRouteChange = this.onRouteChange.bind(this);
+  }
+
+  loadUser = (data) => {
+    this.setState({user:{
+      id:data.id,
+      name:data.name,
+      email:data.email,
+      entries: data.entries ,
+      joined: data.joined
+    }
+    })
   }
 
   calculateFaceLocation = (data) =>{
@@ -76,7 +94,8 @@ class App extends Component {
     if(route === 'home'){
       this.setState({isSignin:true})
     }else{
-      this.setState({isSignin:false})
+      this.setState(initialState);
+      // this.setState({isSignin:false})
     }
     this.setState({route:route})
   }
@@ -89,16 +108,34 @@ class App extends Component {
   onInputChange(event){
     // console.log(event.target.value)
     this.setState({input:event.target.value});
-
   }
 
   onButtonSubmit(){
-    this.setState(state => ({imageUrl:state.input}));
-    console.log(this.state.imageUrl);
-    app.models
-      .predict (Clarifai.FACE_DETECT_MODEL, this.state.input)
-      // .then(console.log)
-      .then ((response) => this.displayFaceBox(this.calculateFaceLocation(response)))
+    this.setState({imageUrl:this.state.input})
+    // console.log(this.state.imageUrl);
+    fetch('http://localhost:3001/imageUrl',{
+            method:'post',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              input:this.state.input
+            })
+          })
+      .then(res => res.json())
+      .then ((response) => {
+        if(response) {
+          fetch('http://localhost:3001/image',{
+            method:'put',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              id:this.state.user.id
+            })
+          })
+            .then(res => res.json())
+            .then(count => {
+              this.setState(Object.assign(this.state.user,{entries:count}))
+            })
+        }
+        this.displayFaceBox(this.calculateFaceLocation(response))})
       .catch ((err) => console.log(err));
   }
 
@@ -111,13 +148,13 @@ class App extends Component {
         <Navbar isSignin = {isSignin} onRouteChange = {onRouteChange} className='ba bw2' />
         {route === 'home'?
           <div><Logo />
-          <Rank/>
+          <Rank name = {this.state.user.name} entries = {this.state.user.entries} />
           <ImageLinkForm onInputChange={this.onInputChange} onButtonSubmit={this.onButtonSubmit}/>
           <FaceRecognition box = {this.state.box} imageUrl={this.state.imageUrl}/>
           </div>
         :(route === 'register'
-        ?<Register onRouteChange = {onRouteChange}/>
-        :<Signin onRouteChange = {onRouteChange}/>
+        ?<Register loadUser={this.loadUser} onRouteChange = {onRouteChange}/>
+        :<Signin loadUser={this.loadUser} onRouteChange = {onRouteChange}/>
         )}
       </div>
     );

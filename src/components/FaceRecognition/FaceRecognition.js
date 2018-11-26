@@ -9,7 +9,6 @@ const FaceRecognition = ({box,imageUrl}) => {
         <div className='flex justify-center'>
             <div className='absolute mt2'>
                 <img alt = '' src={imageUrl} width='500px' height='auto' id = 'inputimage' />
-                {console.log(Boolean(box.length))}
                 {box.length?
                  bounding(box)
                  :<p></p>
